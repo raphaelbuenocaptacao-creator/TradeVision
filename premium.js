@@ -1,0 +1,15 @@
+(() => {
+ const $p=id=>document.getElementById(id), brl=n=>(Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+ function calc(){if(typeof ops==='undefined'||typeof settings==='undefined')return;const ordered=[...ops].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));const wins=ordered.filter(o=>o.result>0),losses=ordered.filter(o=>o.result<0);const total=ordered.reduce((s,o)=>s+o.result,0);const avgW=wins.length?wins.reduce((s,o)=>s+o.result,0)/wins.length:0,avgL=losses.length?Math.abs(losses.reduce((s,o)=>s+o.result,0)/losses.length):0;
+ const days={};ordered.forEach(o=>days[o.date]=(days[o.date]||0)+o.result);const dv=Object.values(days),pos=dv.filter(v=>v>0).length,neg=dv.filter(v=>v<0).length,pct=dv.length?pos/dv.length*100:0;
+ let cur=0,curType='',bestW=0,bestL=0,w=0,l=0;ordered.forEach(o=>{if(o.result>0){w++;l=0;bestW=Math.max(bestW,w)}else if(o.result<0){l++;w=0;bestL=Math.max(bestL,l)}});for(let i=ordered.length-1;i>=0;i--){const t=ordered[i].result>0?'W':ordered[i].result<0?'L':'N';if(t==='N')continue;if(!curType)curType=t;if(t!==curType)break;cur++}
+ let violations=0;Object.values(days).forEach(v=>{if(v<=-Math.max(1,settings.dailyStop))violations++});ordered.forEach(o=>{if(o.stop>0&&o.result<0&&Math.abs(o.result)>o.stop*1.15)violations++});const score=ordered.length?Math.max(0,Math.round(100-(violations/Math.max(1,ordered.length))*100)):100;
+ const step=Math.max(1,settings.step),progress=((total%step)+step)%step,remaining=total<0?step:progress===0&&total>0?step:step-progress;
+ if($p('disciplineScore')){$p('disciplineScore').textContent=score;$p('disciplineLabel').textContent=!ordered.length?'Comece registrando suas operações':score>=90?'Excelente aderência ao plano':score>=75?'Boa disciplina — há pontos de atenção':'Revise sua gestão de risco';$p('disciplineBar').style.width=score+'%'}
+ if($p('currentStreak')){$p('currentStreak').textContent=cur?`${cur} ${curType==='W'?'W':'L'}`:'—';$p('currentStreak').className=curType==='W'?'positive':curType==='L'?'negative':'';$p('bestStreak').textContent=`Melhor: ${bestW} W • Maior perda: ${bestL} L`}
+ if($p('positiveDays')){$p('positiveDays').textContent=pct.toFixed(0)+'%';$p('dayBalance').textContent=`${pos} positivos / ${neg} negativos`}
+ if($p('nextContract')){$p('nextContract').textContent=brl(remaining);$p('progressCapital').textContent=`Faltam para o próximo nível • acumulado ${brl(total)}`}
+ if($p('avgWin'))$p('avgWin').textContent=brl(avgW);if($p('avgLoss'))$p('avgLoss').textContent=brl(avgL);if($p('chartEmpty'))$p('chartEmpty').classList.toggle('hidden',ordered.length>0);if($p('equityChart'))$p('equityChart').classList.toggle('hidden',ordered.length===0);
+ }
+ const original=window.render;if(typeof original==='function')window.render=function(){original();calc()};document.addEventListener('DOMContentLoaded',()=>setTimeout(calc,50));setTimeout(calc,250);
+})();
