@@ -5,92 +5,102 @@
   const message = document.getElementById('loginMsg');
   if (!button || !emailInput || !passwordInput || !message) return;
 
-  let firstAccessBtn = document.getElementById('firstAccessBtn');
-  if (!firstAccessBtn) {
-    firstAccessBtn = document.createElement('button');
-    firstAccessBtn.id = 'firstAccessBtn';
-    firstAccessBtn.type = 'button';
-    firstAccessBtn.className = 'login-link';
-    firstAccessBtn.textContent = 'PRIMEIRO ACESSO';
-    button.insertAdjacentElement('afterend', firstAccessBtn);
+  const oldFirstAccess = document.getElementById('firstAccessBtn');
+  if (oldFirstAccess) oldFirstAccess.remove();
+
+  let forgotBtn = document.getElementById('forgotPasswordBtn');
+  if (!forgotBtn) {
+    forgotBtn = document.createElement('button');
+    forgotBtn.id = 'forgotPasswordBtn';
+    forgotBtn.type = 'button';
+    forgotBtn.className = 'recovery-link';
+    forgotBtn.textContent = 'ESQUECI MINHA SENHA';
+    button.insertAdjacentElement('afterend', forgotBtn);
+  }
+
+  let recoveryBox = document.getElementById('recoveryBox');
+  if (!recoveryBox) {
+    recoveryBox = document.createElement('div');
+    recoveryBox.id = 'recoveryBox';
+    recoveryBox.className = 'recovery-box hidden';
+    recoveryBox.innerHTML = `
+      <h3>Recuperar acesso</h3>
+      <p>Peça ao administrador um código de recuperação temporário. Ele não vê sua senha.</p>
+      <input id="recoveryCode" inputmode="numeric" maxlength="8" placeholder="Código de 8 dígitos">
+      <input id="recoveryNewPassword" type="password" autocomplete="new-password" placeholder="Nova senha (mín. 10 caracteres)">
+      <input id="recoveryConfirmPassword" type="password" autocomplete="new-password" placeholder="Confirmar nova senha">
+      <button id="recoverySave" type="button">REDEFINIR SENHA</button>
+      <button id="recoveryCancel" type="button" class="secondary-action">CANCELAR</button>
+      <div id="recoveryMsg" class="msg" aria-live="polite"></div>`;
+    forgotBtn.insertAdjacentElement('afterend', recoveryBox);
   }
 
   function authMessage(error) {
     if (error?.code === 'NETWORK_ERROR') return 'Sem conexão com a Aureon Base. Verifique sua internet.';
-    if (error?.status === 409) return 'Este e-mail já possui conta. Use ENTRAR.';
     if (error?.status === 403) return 'Este e-mail ainda não está autorizado para o TradeVision.';
     if (error?.status === 429) return 'Muitas tentativas. Aguarde alguns minutos.';
     if (error?.status === 402) return 'Seu período de acesso está inativo.';
     if (error?.status === 401) return 'E-mail ou senha incorretos.';
     if (error?.status >= 500) return 'A Aureon Base está atualizando. Tente novamente em instantes.';
-    return 'Não foi possível concluir agora.';
+    return 'Não foi possível entrar agora.';
   }
 
-  function credentials() {
+  async function enter() {
     const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     if (!email || password.length < 10) {
       message.textContent = 'Informe seu e-mail e uma senha com pelo menos 10 caracteres.';
-      return null;
+      return;
     }
-    return { email, password };
-  }
-
-  async function finishAuth(data) {
-    persistTokens(data);
-    await loadCloud();
-    showApp();
-    message.textContent = '';
-  }
-
-  async function enter() {
-    const creds = credentials();
-    if (!creds) return;
     button.disabled = true;
-    firstAccessBtn.disabled = true;
+    forgotBtn.disabled = true;
     button.textContent = 'CONECTANDO...';
     message.textContent = 'Validando acesso...';
     try {
-      const data = await request('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(creds),
-      }, false);
-      await finishAuth(data);
+      const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false);
+      persistTokens(data);
+      await loadCloud();
+      showApp();
+      message.textContent = '';
     } catch (error) {
       clearTokens();
       message.textContent = authMessage(error);
     } finally {
       button.disabled = false;
-      firstAccessBtn.disabled = false;
+      forgotBtn.disabled = false;
       button.textContent = 'ENTRAR';
     }
   }
 
-  async function firstAccess() {
-    const creds = credentials();
-    if (!creds) return;
-    firstAccessBtn.disabled = true;
-    button.disabled = true;
-    firstAccessBtn.textContent = 'CRIANDO ACESSO...';
-    message.textContent = 'Criando sua conta com segurança...';
+  forgotBtn.onclick = () => {
+    recoveryBox.classList.toggle('hidden');
+    document.getElementById('recoveryMsg').textContent = '';
+  };
+  document.getElementById('recoveryCancel').onclick = () => recoveryBox.classList.add('hidden');
+  document.getElementById('recoverySave').onclick = async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const code = document.getElementById('recoveryCode').value.replace(/\D/g, '');
+    const newPassword = document.getElementById('recoveryNewPassword').value;
+    const confirmPassword = document.getElementById('recoveryConfirmPassword').value;
+    const msg = document.getElementById('recoveryMsg');
+    if (!email) { msg.textContent = 'Informe o e-mail da conta acima.'; return; }
+    if (code.length !== 8) { msg.textContent = 'Informe o código de 8 dígitos fornecido pelo administrador.'; return; }
+    if (newPassword.length < 10) { msg.textContent = 'A nova senha precisa ter pelo menos 10 caracteres.'; return; }
+    if (newPassword !== confirmPassword) { msg.textContent = 'As senhas não conferem.'; return; }
+    const save = document.getElementById('recoverySave');
+    save.disabled = true;
+    msg.textContent = 'Redefinindo senha...';
     try {
-      const data = await request('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ ...creds, project_slug: PROJECT }),
-      }, false);
-      await finishAuth(data);
+      await request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, code, new_password: newPassword }) }, false);
+      passwordInput.value = '';
+      recoveryBox.classList.add('hidden');
+      message.textContent = 'Senha redefinida. Entre com sua nova senha.';
     } catch (error) {
-      clearTokens();
-      message.textContent = authMessage(error);
-    } finally {
-      firstAccessBtn.disabled = false;
-      button.disabled = false;
-      firstAccessBtn.textContent = 'PRIMEIRO ACESSO';
-    }
-  }
+      msg.textContent = error?.status === 401 ? 'Código inválido ou expirado.' : error?.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Não foi possível redefinir a senha.';
+    } finally { save.disabled = false; }
+  };
 
   button.onclick = enter;
-  firstAccessBtn.onclick = firstAccess;
   passwordInput.addEventListener('keydown', event => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
