@@ -25,11 +25,14 @@
     recoveryBox.className = 'recovery-box hidden';
     recoveryBox.innerHTML = `
       <h3>Recuperar acesso</h3>
-      <p>Peça ao administrador um código de recuperação temporário. Ele não vê sua senha.</p>
-      <input id="recoveryCode" inputmode="numeric" maxlength="8" placeholder="Código de 8 dígitos">
-      <input id="recoveryNewPassword" type="password" autocomplete="new-password" placeholder="Nova senha (mín. 10 caracteres)">
-      <input id="recoveryConfirmPassword" type="password" autocomplete="new-password" placeholder="Confirmar nova senha">
-      <button id="recoverySave" type="button">REDEFINIR SENHA</button>
+      <p id="recoveryHelp">Enviaremos um código de segurança para o e-mail informado acima.</p>
+      <button id="recoverySend" type="button">ENVIAR CÓDIGO POR E-MAIL</button>
+      <div id="recoveryFields" class="hidden">
+        <input id="recoveryCode" inputmode="numeric" maxlength="8" placeholder="Código de 8 dígitos">
+        <input id="recoveryNewPassword" type="password" autocomplete="new-password" placeholder="Nova senha (mín. 10 caracteres)">
+        <input id="recoveryConfirmPassword" type="password" autocomplete="new-password" placeholder="Confirmar nova senha">
+        <button id="recoverySave" type="button">REDEFINIR SENHA</button>
+      </div>
       <button id="recoveryCancel" type="button" class="secondary-action">CANCELAR</button>
       <div id="recoveryMsg" class="msg" aria-live="polite"></div>`;
     forgotBtn.insertAdjacentElement('afterend', recoveryBox);
@@ -77,6 +80,27 @@
     document.getElementById('recoveryMsg').textContent = '';
   };
   document.getElementById('recoveryCancel').onclick = () => recoveryBox.classList.add('hidden');
+  document.getElementById('recoverySend').onclick = async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const send = document.getElementById('recoverySend');
+    const msg = document.getElementById('recoveryMsg');
+    if (!email) { msg.textContent = 'Informe seu e-mail acima primeiro.'; return; }
+    send.disabled = true;
+    send.textContent = 'ENVIANDO...';
+    msg.textContent = '';
+    try {
+      await request('/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }, false);
+      document.getElementById('recoveryFields').classList.remove('hidden');
+      msg.textContent = 'Código enviado. Verifique sua caixa de entrada e também o spam.';
+    } catch (error) {
+      if (error?.status === 503) msg.textContent = 'Envio automático temporariamente indisponível. O CEO ainda pode gerar um código pelo painel administrativo.';
+      else if (error?.status === 429) msg.textContent = 'Muitas solicitações. Aguarde alguns minutos.';
+      else msg.textContent = 'Não foi possível enviar o código agora.';
+    } finally {
+      send.disabled = false;
+      send.textContent = 'REENVIAR CÓDIGO';
+    }
+  };
   document.getElementById('recoverySave').onclick = async () => {
     const email = emailInput.value.trim().toLowerCase();
     const code = document.getElementById('recoveryCode').value.replace(/\D/g, '');
@@ -84,7 +108,7 @@
     const confirmPassword = document.getElementById('recoveryConfirmPassword').value;
     const msg = document.getElementById('recoveryMsg');
     if (!email) { msg.textContent = 'Informe o e-mail da conta acima.'; return; }
-    if (code.length !== 8) { msg.textContent = 'Informe o código de 8 dígitos fornecido pelo administrador.'; return; }
+    if (code.length !== 8) { msg.textContent = 'Informe o código de 8 dígitos enviado para seu e-mail.'; return; }
     if (newPassword.length < 10) { msg.textContent = 'A nova senha precisa ter pelo menos 10 caracteres.'; return; }
     if (newPassword !== confirmPassword) { msg.textContent = 'As senhas não conferem.'; return; }
     const save = document.getElementById('recoverySave');
