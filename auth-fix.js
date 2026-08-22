@@ -7,7 +7,6 @@
 
   function authMessage(error) {
     if (error?.code === 'NETWORK_ERROR') return 'Sem conexão com a Aureon Base. Verifique sua internet.';
-    if (error?.status === 409) return 'Esta conta já existe. Confira a senha informada.';
     if (error?.status === 403) return 'Este e-mail ainda não está autorizado para o TradeVision.';
     if (error?.status === 429) return 'Muitas tentativas. Aguarde alguns minutos.';
     if (error?.status === 402) return 'Seu período de acesso está inativo.';
@@ -16,7 +15,7 @@
     return 'Não foi possível entrar agora.';
   }
 
-  async function enterOrCreate() {
+  async function enter() {
     const email = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     if (!email || password.length < 10) {
@@ -29,24 +28,16 @@
     message.textContent = 'Validando acesso...';
 
     try {
-      let data;
-      try {
-        data = await request('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        }, false);
-      } catch (error) {
-        if (error?.status !== 401) throw error;
-        data = await request('/auth/register', {
-          method: 'POST',
-          body: JSON.stringify({ email, password, project_slug: PROJECT }),
-        }, false);
-      }
+      const data = await request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }, false);
       persistTokens(data);
       await loadCloud();
       showApp();
       message.textContent = '';
     } catch (error) {
+      clearTokens();
       message.textContent = authMessage(error);
     } finally {
       button.disabled = false;
@@ -54,11 +45,11 @@
     }
   }
 
-  button.onclick = enterOrCreate;
+  button.onclick = enter;
   passwordInput.addEventListener('keydown', event => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    enterOrCreate();
+    enter();
   }, true);
 })();
