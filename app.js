@@ -102,9 +102,9 @@ async function request(path, options = {}, retry = true) {
 
 function loginMessage(error) {
   if (error?.code === 'NETWORK_ERROR') return 'Sem conexão com a Aureon Base. Verifique sua internet e tente novamente.';
-  if (error?.status === 409) return 'Esta conta já existe. Confira a senha informada.';
   if (error?.status === 403) return 'Este e-mail ainda não está autorizado para o TradeVision.';
   if (error?.status === 429) return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  if (error?.status === 402) return 'Seu período de acesso está inativo.';
   if (error?.status === 401) return 'E-mail ou senha incorretos.';
   return 'Não foi possível entrar agora. Tente novamente.';
 }
@@ -119,23 +119,16 @@ async function login() {
   $('loginBtn').disabled = true;
   $('loginMsg').textContent = 'Conectando à Aureon Base...';
   try {
-    let data;
-    try {
-      data = await request('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      }, false);
-    } catch (error) {
-      if (error.status !== 401) throw error;
-      data = await request('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, project_slug: PROJECT }),
-      }, false);
-    }
+    const data = await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }, false);
     persistTokens(data);
     await loadCloud();
     showApp();
+    $('loginMsg').textContent = '';
   } catch (error) {
+    clearTokens();
     $('loginMsg').textContent = loginMessage(error);
   } finally {
     $('loginBtn').disabled = false;
@@ -514,45 +507,16 @@ function renderAccount() {
     $('accountUntil').textContent = formatDate(subscription?.current_period_end);
     $('accountBadge').textContent = 'Pro';
   } else if (access.status === 'lifetime') {
-    $('accountAccess').textContent = 'Acesso vitalício';
+    const ceo = Boolean(account.user?.is_superadmin);
+    $('accountAccess').textContent = ceo ? 'CEO • Acesso vitalício' : 'Acesso vitalício';
     $('accountUntil').textContent = 'Sem expiração';
-    $('accountBadge').textContent = 'Vitalício';
+    $('accountBadge').textContent = ceo ? 'CEO' : 'Vitalício';
   } else {
     $('accountAccess').textContent = 'Acesso inativo';
     $('accountUntil').textContent = '—';
     $('accountBadge').textContent = 'Inativo';
   }
 }
-
-$('changePassword').onclick = async () => {
-  const currentPassword = $('currentPassword').value;
-  const newPassword = $('newPassword').value;
-  const confirmPassword = $('confirmPassword').value;
-  const msg = $('passwordMsg');
-  if (newPassword.length < 10) {
-    msg.textContent = 'A nova senha precisa ter pelo menos 10 caracteres.';
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    msg.textContent = 'A confirmação da nova senha não confere.';
-    return;
-  }
-  $('changePassword').disabled = true;
-  msg.textContent = 'Alterando senha...';
-  try {
-    await request('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-    }, false);
-    clearTokens();
-    alert('Senha alterada com sucesso. Entre novamente usando a nova senha.');
-    location.reload();
-  } catch (error) {
-    msg.textContent = error.status === 401 ? 'A senha atual está incorreta.' : error.status === 400 ? 'Escolha uma nova senha diferente, com pelo menos 10 caracteres.' : 'Não foi possível alterar a senha agora.';
-  } finally {
-    $('changePassword').disabled = false;
-  }
-};
 
 window.addEventListener('resize', drawChart);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
