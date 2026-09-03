@@ -1,5 +1,5 @@
 const CACHE_PREFIX='tradevision-';
-const CACHE=`${CACHE_PREFIX}v23-safe-shell`;
+const CACHE=`${CACHE_PREFIX}v24-safe-shell`;
 const APP_SHELL=['./','./index.html','./style.css','./password-login.css','./app.js','./premium.js','./install.js','./auth-fix.js','./admin.js','./manifest.webmanifest','./icon-192.svg','./icon-512.svg','./icon-512-maskable.svg'];
 const PRIVATE_PATHS=['/auth/','/api/','/admin/','/login','/logout','/session','/sessions','/token','/tokens','/account','/profile','/me'];
 const SENSITIVE_QUERY_KEYS=['token','access_token','refresh_token','password','passwd','secret','session','auth','authorization','api_key','apikey','key','code','credential','credentials'];
@@ -13,7 +13,7 @@ function hasSensitiveQuery(url){
 
 function isPrivateRequest(request,url){
   if(request.method!=='GET') return true;
-  if(request.headers.has('authorization')||request.headers.has('cookie')||request.headers.has('range')) return true;
+  if(request.headers.has('authorization')||request.headers.has('cookie')||request.headers.has('range')||request.headers.has('if-range')) return true;
   if(url.origin!==self.location.origin) return true;
   if(hasSensitiveQuery(url)) return true;
   const path=url.pathname.toLowerCase();
@@ -21,7 +21,7 @@ function isPrivateRequest(request,url){
 }
 
 function isSafeResponse(response){
-  if(!response||!response.ok||response.type!=='basic'||response.status===206) return false;
+  if(!response||!response.ok||response.type!=='basic'||response.status===206||response.redirected) return false;
   const cacheControl=(response.headers.get('cache-control')||'').toLowerCase();
   if(cacheControl.includes('private')||cacheControl.includes('no-store')) return false;
   if(response.headers.has('set-cookie')||response.headers.has('content-range')) return false;
@@ -38,7 +38,7 @@ async function precacheShell(){
   const cache=await caches.open(CACHE);
   await Promise.all(APP_SHELL.map(async asset=>{
     try{
-      const request=new Request(asset,{credentials:'omit',cache:'reload'});
+      const request=new Request(asset,{credentials:'omit',cache:'reload',redirect:'error'});
       const response=await fetch(request);
       if(isSafeResponse(response)) await cache.put(request,response.clone());
     }catch(error){
@@ -66,7 +66,7 @@ self.addEventListener('fetch',event=>{
 
   if(request.mode==='navigate'){
     event.respondWith(
-      fetch(request,{cache:'no-store'}).catch(async()=>{
+      fetch(request,{cache:'no-store',redirect:'error'}).catch(async()=>{
         const cached=await caches.match('./index.html');
         return cached||Response.error();
       })
@@ -77,7 +77,7 @@ self.addEventListener('fetch',event=>{
   if(!isShellRequest(url)) return;
 
   event.respondWith(
-    caches.match(request).then(cached=>cached||fetch(request,{cache:'no-cache',credentials:'omit'}).then(async response=>{
+    caches.match(request).then(cached=>cached||fetch(request,{cache:'no-cache',credentials:'omit',redirect:'error'}).then(async response=>{
       if(isSafeResponse(response)){
         const copy=response.clone();
         const cache=await caches.open(CACHE);
