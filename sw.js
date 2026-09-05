@@ -1,6 +1,6 @@
 const CACHE_PREFIX='tradevision-';
-const CACHE=`${CACHE_PREFIX}v24-safe-shell`;
-const APP_SHELL=['./','./index.html','./style.css','./password-login.css','./app.js','./premium.js','./install.js','./auth-fix.js','./admin.js','./manifest.webmanifest','./icon-192.svg','./icon-512.svg','./icon-512-maskable.svg'];
+const CACHE=`${CACHE_PREFIX}v25-raster-safe-shell`;
+const APP_SHELL=['./','./index.html','./style.css','./password-login.css','./app.js','./premium.js','./install.js','./auth-fix.js','./admin.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-512-maskable.png'];
 const PRIVATE_PATHS=['/auth/','/api/','/admin/','/login','/logout','/session','/sessions','/token','/tokens','/account','/profile','/me'];
 const SENSITIVE_QUERY_KEYS=['token','access_token','refresh_token','password','passwd','secret','session','auth','authorization','api_key','apikey','key','code','credential','credentials'];
 
