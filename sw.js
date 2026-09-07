@@ -1,5 +1,5 @@
 const CACHE_PREFIX='tradevision-';
-const CACHE=`${CACHE_PREFIX}v25-raster-safe-shell`;
+const CACHE=`${CACHE_PREFIX}v26-private-vary-safe-shell`;
 const APP_SHELL=['./','./index.html','./style.css','./password-login.css','./app.js','./premium.js','./install.js','./auth-fix.js','./admin.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-512-maskable.png'];
 const PRIVATE_PATHS=['/auth/','/api/','/admin/','/login','/logout','/session','/sessions','/token','/tokens','/account','/profile','/me'];
 const SENSITIVE_QUERY_KEYS=['token','access_token','refresh_token','password','passwd','secret','session','auth','authorization','api_key','apikey','key','code','credential','credentials'];
@@ -20,11 +20,19 @@ function isPrivateRequest(request,url){
   return PRIVATE_PATHS.some(part=>path.includes(part));
 }
 
+function variesPrivate(response){
+  const vary=(response.headers.get('vary')||'').toLowerCase();
+  return vary.split(',').some(value=>{
+    const key=value.trim();
+    return key==='cookie'||key==='authorization';
+  });
+}
+
 function isSafeResponse(response){
   if(!response||!response.ok||response.type!=='basic'||response.status===206||response.redirected) return false;
   const cacheControl=(response.headers.get('cache-control')||'').toLowerCase();
   if(cacheControl.includes('private')||cacheControl.includes('no-store')) return false;
-  if(response.headers.has('set-cookie')||response.headers.has('content-range')) return false;
+  if(response.headers.has('set-cookie')||response.headers.has('content-range')||variesPrivate(response)) return false;
   return true;
 }
 
