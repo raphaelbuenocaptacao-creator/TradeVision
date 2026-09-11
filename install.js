@@ -12,7 +12,7 @@
   const secureContext=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
   if('serviceWorker' in navigator&&secureContext){
     window.addEventListener('load',()=>{
-      navigator.serviceWorker.register('./sw.js?v=28-private-vary-range-safe-shell',{scope:'./',updateViaCache:'none'}).then(reg=>reg.update()).catch(err=>console.warn('PWA service worker não registrado:',err));
+      navigator.serviceWorker.register('./sw.js?v=29-private-vary-range-safe-shell',{scope:'./',updateViaCache:'none'}).then(reg=>reg.update()).catch(err=>console.warn('PWA service worker não registrado:',err));
     });
   }
 
