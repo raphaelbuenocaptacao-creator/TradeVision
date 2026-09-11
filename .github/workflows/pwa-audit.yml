@@ -1,0 +1,52 @@
+name: TradeVision PWA Audit
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript syntax
+        run: |
+          node --check sw.js
+          node --check install.js
+      - name: Validate manifest
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('manifest.webmanifest','utf8'));
+          const required = ['name','short_name','start_url','display','theme_color','background_color','icons'];
+          for (const key of required) if (!m[key]) throw new Error(`manifest missing ${key}`);
+          if (m.display !== 'standalone') throw new Error('display must be standalone');
+          for (const size of ['192x192','512x512']) {
+            if (!m.icons.some(i => i.sizes === size && i.type === 'image/png')) throw new Error(`missing PNG ${size}`);
+          }
+          if (!m.icons.some(i => (i.purpose || '').split(/\s+/).includes('maskable'))) throw new Error('missing maskable icon');
+          NODE
+      - name: Validate PWA files
+        run: |
+          test -f icon-192.png
+          test -f icon-512.png
+          test -f icon-512-maskable.png
+          test -f index.html
+          grep -qi 'rel="manifest"' index.html
+          grep -qi 'theme-color' index.html
+          grep -qi 'viewport' index.html
+      - name: Validate safe cache policy
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const sw = fs.readFileSync('sw.js','utf8').toLowerCase();
+          for (const token of ['authorization','cookie','range','if-range','private','no-store','set-cookie','content-range']) {
+            if (!sw.includes(token)) throw new Error(`service worker missing cache safety token: ${token}`);
+          }
+          if (!/key\s*===\s*['"]if-range['"]/.test(sw)) throw new Error('Vary: If-Range is not rejected');
+          if (!sw.includes("startsWith(cache_prefix)") && !sw.includes("startswith(cache_prefix)")) throw new Error('cache cleanup is not scoped to app prefix');
+          NODE
