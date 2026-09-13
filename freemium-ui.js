@@ -15,8 +15,7 @@
 
   function renderAccess(accessInfo) {
     const subscription = accessInfo?.subscription || {};
-    const usage = accessInfo?.usage || {};
-    const planCode = String(subscription.plan_code || '').toLowerCase();
+    const usage = accessInfo && accessInfo.usage ? accessInfo.usage : {};
     const access = accessInfo?.access || {};
     const usageNode = $('accountUsage');
     const accessNode = $('accountAccess');
@@ -25,7 +24,7 @@
 
     if (!usageNode || !accessNode || !untilNode || !badge) return;
 
-    if (access.allowed && access.status === 'active' && planCode === 'free') {
+    if (access.allowed && access.status === 'active' && subscription.plan_code === 'free') {
       const used = Number(usage.used || 0);
       const limit = Number(usage.limit || 20);
       accessNode.textContent = 'Plano Free';
@@ -36,7 +35,7 @@
       return;
     }
 
-    if (access.allowed && (planCode === 'pro-monthly' || usage.unlimited === true)) {
+    if (access.allowed && (subscription.plan_code === 'pro-monthly' || usage.unlimited === true)) {
       usageNode.textContent = 'Operações ilimitadas';
       if (access.status === 'active') accessNode.textContent = 'TradeVision Pro';
       if (access.status === 'active') badge.textContent = 'Pro';
