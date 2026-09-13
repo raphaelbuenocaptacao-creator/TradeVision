@@ -50,3 +50,15 @@ jobs:
           if (!/key\s*===\s*['"]if-range['"]/.test(sw)) throw new Error('Vary: If-Range is not rejected');
           if (!sw.includes("startsWith(cache_prefix)") && !sw.includes("startswith(cache_prefix)")) throw new Error('cache cleanup is not scoped to app prefix');
           NODE
+      - name: Validate service worker version alignment
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const sw = fs.readFileSync('sw.js','utf8');
+          const install = fs.readFileSync('install.js','utf8');
+          const match = sw.match(/CACHE\s*=\s*`\$\{CACHE_PREFIX\}([^`]+)`/);
+          if (!match) throw new Error('CACHE version not found');
+          const version = match[1];
+          if (!install.includes(`./sw.js?v=${version}`)) throw new Error(`service worker registration is not aligned with ${version}`);
+          if (!install.replace(/\s+/g,'').includes("updateViaCache:'none'")) throw new Error("updateViaCache:'none' is required");
+          NODE
