@@ -1,10 +1,11 @@
 (() => {
   const API = 'https://aureonbase.vercel.app';
   const PROJECT = 'tradevision';
+  const CHECKOUT_URL = 'https://pay.kiwify.com.br/PauaSjH';
   const $ = id => document.getElementById(id);
 
   function checkoutUrl() {
-    return String(window.TRADEVISION_CHECKOUT_URL || '').trim();
+    return CHECKOUT_URL;
   }
 
   function setUpgradeVisible(visible) {
@@ -63,12 +64,7 @@
   }
 
   function handleUpgrade() {
-    const url = checkoutUrl();
-    if (url) {
-      window.location.assign(url);
-      return;
-    }
-    alert('O checkout do TradeVision Pro está em configuração.');
+    window.location.assign(checkoutUrl());
   }
 
   function scheduleRefresh() {
