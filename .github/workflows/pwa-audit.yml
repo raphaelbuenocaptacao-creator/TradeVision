@@ -62,3 +62,15 @@ jobs:
           if (!install.includes(`./sw.js?v=${version}`)) throw new Error(`service worker registration is not aligned with ${version}`);
           if (!install.replace(/\s+/g,'').includes("updateViaCache:'none'")) throw new Error("updateViaCache:'none' is required");
           NODE
+      - name: Validate service worker refresh and handoff
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const install = fs.readFileSync('install.js','utf8');
+          if (!install.includes('visibilitychange')) throw new Error('missing refresh when app returns to foreground');
+          if (!install.includes("document.visibilityState==='visible'") && !install.includes('document.visibilityState === \'visible\'')) throw new Error('foreground refresh is not visibility-gated');
+          const updates = (install.match(/\.update\(\)/g) || []).length;
+          if (updates < 2) throw new Error('service worker update is not retriggered after initial load');
+          if (!install.includes('controllerchange')) throw new Error('missing service worker controller handoff');
+          if (!install.includes('location.reload()')) throw new Error('controller handoff does not reload the runtime');
+          NODE
