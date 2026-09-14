@@ -11,8 +11,29 @@
 
   const secureContext=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
   if('serviceWorker' in navigator&&secureContext){
+    let swRegistration=null;
+    const hadController=Boolean(navigator.serviceWorker.controller);
+    let refreshing=false;
+
     window.addEventListener('load',()=>{
-      navigator.serviceWorker.register('./sw.js?v=v29-private-vary-range-safe-shell',{scope:'./',updateViaCache:'none'}).then(reg=>reg.update()).catch(err=>console.warn('PWA service worker não registrado:',err));
+      navigator.serviceWorker.register('./sw.js?v=v29-private-vary-range-safe-shell',{scope:'./',updateViaCache:'none'})
+        .then(reg=>{
+          swRegistration=reg;
+          return reg.update();
+        })
+        .catch(err=>console.warn('PWA service worker não registrado:',err));
+    });
+
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible'&&swRegistration){
+        swRegistration.update().catch(err=>console.warn('PWA service worker não atualizado:',err));
+      }
+    });
+
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!hadController||refreshing)return;
+      refreshing=true;
+      location.reload();
     });
   }
 
